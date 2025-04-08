@@ -1,0 +1,6 @@
+# ninja log v6
+2	227	7650381314130026	build.ninja	74f09cd8ee9571bd
+310	754	7642585940425547	charge_afficher_bitmap.exe	b1d65244069ad9cd
+4	155	7645170495965167	CMakeFiles/Allegro.dir/main.c.obj	dc37eb15aacfc431
+136	303	7645172504467900	Allegro.exe	e7a16bd61e1f6cc3
+2	136	7645172503133382	CMakeFiles/Allegro.dir/ex1.c.obj	c1a6b82fe148dc7f
