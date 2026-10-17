@@ -1,0 +1,7 @@
+flask>=3.0
+insightface==0.7.3
+onnxruntime>=1.17        # remplace par onnxruntime-gpu si tu as une carte NVIDIA
+opencv-python-headless>=4.8
+numpy
+pillow>=10
+onnx

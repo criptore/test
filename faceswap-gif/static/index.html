@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Face Swap GIF</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #ffffff; --text: #1d1d1f; --muted: #6b6b70;
+    --border: #e2e0db; --accent: #5b4bdb; --accent-text: #fff; --error: #c0392b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141416; --card: #1e1e22; --text: #ececf0; --muted: #9a9aa3;
+      --border: #2e2e34; --accent: #8b7dff; --accent-text: #141416; --error: #ff7b6b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { margin: 0 0 4px; font-size: 26px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  .drop { position: relative; background: var(--card); border: 2px dashed var(--border); border-radius: 14px;
+          min-height: 240px; display: flex; align-items: center; justify-content: center; text-align: center;
+          cursor: pointer; overflow: hidden; transition: border-color .15s; }
+  .drop:hover, .drop.over { border-color: var(--accent); }
+  .drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop img { max-width: 100%; max-height: 320px; display: block; }
+  .drop .hint { color: var(--muted); padding: 16px; pointer-events: none; }
+  .drop .hint b { display: block; color: var(--text); font-size: 16px; margin-bottom: 4px; }
+  .options { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px;
+             margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+  label.check { flex-direction: row; align-items: center; color: var(--text); font-size: 14px; }
+  select, input[type=number] { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--border);
+                               background: var(--bg); color: var(--text); }
+  button { margin-top: 16px; width: 100%; padding: 14px; font: 600 16px system-ui, sans-serif; border: 0;
+           border-radius: 12px; background: var(--accent); color: var(--accent-text); cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  .bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 16px; display: none; }
+  .bar div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  #status { margin-top: 8px; color: var(--muted); min-height: 1.5em; }
+  #status.error { color: var(--error); }
+  #result { margin-top: 24px; text-align: center; display: none; }
+  #result img { max-width: 100%; border-radius: 14px; border: 1px solid var(--border); }
+  #result a { display: inline-block; margin-top: 12px; color: var(--accent); font-weight: 600; }
+  .note { margin-top: 32px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Face Swap GIF</h1>
+  <p class="sub">Mets le visage d'une photo sur tous les visages d'un GIF animé. Tout tourne en local sur ta machine.</p>
+
+  <div class="grid">
+    <div class="drop" id="dropSource">
+      <input type="file" id="source" accept="image/*">
+      <div class="hint"><b>1. Photo du visage</b>JPG / PNG, visage bien visible, de face</div>
+    </div>
+    <div class="drop" id="dropGif">
+      <input type="file" id="gif" accept="image/gif,image/webp">
+      <div class="hint"><b>2. GIF cible</b>GIF animé (ou WebP animé)</div>
+    </div>
+  </div>
+
+  <div class="options">
+    <label>Modèle
+      <select id="model">
+        <option value="hyperswap_1b_256">HyperSwap 1B 256 (meilleure qualité)</option>
+        <option value="inswapper_128">inswapper 128 (plus rapide, ressemblance forte)</option>
+      </select>
+    </label>
+    <label>Taille max (px)
+      <input type="number" id="max_side" value="720" min="128" max="1920" step="16">
+    </label>
+    <label>Force du rendu HD (GFPGAN)
+      <input type="range" id="strength" min="0" max="1" step="0.05" value="0.8">
+    </label>
+    <div style="display:flex;flex-direction:column;gap:8px;justify-content:center">
+      <label class="check"><input type="checkbox" id="enhance" checked>&nbsp;Améliorer le visage (GFPGAN)</label>
+      <label class="check"><input type="checkbox" id="all_faces">&nbsp;Remplacer tous les visages</label>
+    </div>
+  </div>
+
+  <button id="go" disabled>Lancer le face swap</button>
+  <div class="bar" id="bar"><div></div></div>
+  <div id="status"></div>
+
+  <div id="result">
+    <img id="out" alt="GIF résultat">
+    <br><a id="download" download="faceswap.gif">Télécharger le GIF</a>
+  </div>
+
+  <p class="note">N'utilise que des visages de personnes qui sont d'accord. Ne crée pas de contenu trompeur, diffamatoire ou sexuel avec le visage de quelqu'un.</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const files = { source: null, gif: null };
+
+function preview(input, drop, key) {
+  const show = file => {
+    if (!file) return;
+    files[key] = file;
+    const hint = drop.querySelector('.hint, img');
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    hint.replaceWith(img);
+    $('go').disabled = !(files.source && files.gif);
+  };
+  input.addEventListener('change', () => show(input.files[0]));
+  ['dragenter', 'dragover'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach(e => drop.addEventListener(e, () => drop.classList.remove('over')));
+  drop.addEventListener('drop', ev => { ev.preventDefault(); show(ev.dataTransfer.files[0]); });
+}
+preview($('source'), $('dropSource'), 'source');
+preview($('gif'), $('dropGif'), 'gif');
+
+function setStatus(text, error = false) {
+  $('status').textContent = text;
+  $('status').className = error ? 'error' : '';
+}
+
+$('go').addEventListener('click', async () => {
+  const fd = new FormData();
+  fd.append('source', files.source);
+  fd.append('gif', files.gif);
+  fd.append('model', $('model').value);
+  fd.append('enhance', $('enhance').checked);
+  fd.append('all_faces', $('all_faces').checked);
+  fd.append('strength', $('strength').value);
+  fd.append('max_side', $('max_side').value);
+
+  $('go').disabled = true;
+  $('result').style.display = 'none';
+  $('bar').style.display = 'block';
+  $('bar').firstElementChild.style.width = '0';
+  setStatus('Envoi…');
+
+  try {
+    const res = await fetch('/api/swap', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    await poll(data.id);
+  } catch (e) {
+    setStatus(e.message || 'Erreur', true);
+  } finally {
+    $('go').disabled = false;
+  }
+});
+
+async function poll(id) {
+  while (true) {
+    await new Promise(r => setTimeout(r, 700));
+    const job = await (await fetch(`/api/jobs/${id}`)).json();
+    if (job.status === 'error') throw new Error(job.error);
+    if (job.total) {
+      $('bar').firstElementChild.style.width = `${100 * job.done / job.total}%`;
+      setStatus(`Image ${job.done} / ${job.total}…`);
+    } else {
+      setStatus(job.status === 'queued' ? 'En attente…' : 'Chargement des modèles (le 1er lancement télécharge ~1,3 Go)…');
+    }
+    if (job.status === 'done') {
+      const url = `/api/jobs/${id}/result?t=${Date.now()}`;
+      $('out').src = url;
+      $('download').href = url;
+      $('result').style.display = 'block';
+      setStatus('Terminé ✔');
+      return;
+    }
+  }
+}
+</script>
+</body>
+</html>
